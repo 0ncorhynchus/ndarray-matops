@@ -3,6 +3,9 @@ use ndarray::{ArrayBase, Data, DataMut, Ix1, Ix2, LinalgScalar};
 #[cfg(feature = "blas")]
 use std::os::raw::c_int;
 
+#[cfg(feature = "blas")]
+const GER_BLAS_CUTOFF: usize = 32;
+
 pub trait Ger<V1, V2> {
     type Elem;
     fn ger(&mut self, alpha: Self::Elem, x: &V1, y: &V2);
@@ -113,8 +116,11 @@ fn ger_impl<A, S1, S2, S3>(
         }};
     }
 
-    ger! {f32, cblas_sger};
-    ger! {f64, cblas_dger};
+    let (m, n) = z.dim();
+    if m >= GER_BLAS_CUTOFF && n >= GER_BLAS_CUTOFF {
+        ger! {f32, cblas_sger};
+        ger! {f64, cblas_dger};
+    }
 
     ger_generic(z, alpha, x, y);
 }
