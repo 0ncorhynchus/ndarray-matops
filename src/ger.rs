@@ -4,8 +4,6 @@ use ndarray::{ArrayBase, Data, DataMut, Ix1, Ix2, LinalgScalar};
 use crate::blas_utils::*;
 #[cfg(feature = "blas")]
 use cblas_sys as blas_sys;
-#[cfg(feature = "blas")]
-use cblas_sys::CBLAS_LAYOUT;
 
 #[cfg(feature = "blas")]
 #[allow(non_camel_case_types)]
@@ -81,13 +79,15 @@ fn ger_impl<A, S1, S2, S3>(
 {
     macro_rules! ger {
         ($ty:ty, $ger:ident) => {{
-            if let Some(layout) = blas_layout::<$ty, _>(z) {
-                if blas_compat_1d::<$ty, _>(x) && blas_compat_1d::<$ty, _>(y) {
+            if same_type::<A, $ty>()
+                && is_blas_compat_2d(z)
+                && is_blas_compat_1d(x)
+                && is_blas_compat_1d(y)
+            {
+                if let Some(layout) = memory_layout(z) {
                     let (m, n) = z.dim();
-                    let stride = match layout {
-                        CBLAS_LAYOUT::CblasRowMajor => z.strides()[0] as blas_index,
-                        CBLAS_LAYOUT::CblasColMajor => z.strides()[1] as blas_index,
-                    };
+                    let stride = layout.stride(z);
+                    let layout = layout.into();
                     unsafe {
                         let (x_ptr, _, incx) = blas_1d_params(x.as_ptr(), x.len(), x.strides()[0]);
                         let (y_ptr, _, incy) = blas_1d_params(y.as_ptr(), y.len(), y.strides()[0]);

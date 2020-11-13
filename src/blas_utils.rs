@@ -29,7 +29,7 @@ pub unsafe fn blas_1d_params<A>(
 
 #[inline(always)]
 /// Return `true` if `A` and `B` are the same type
-fn same_type<A: 'static, B: 'static>() -> bool {
+pub fn same_type<A: 'static, B: 'static>() -> bool {
     TypeId::of::<A>() == TypeId::of::<B>()
 }
 
@@ -41,20 +41,11 @@ pub fn cast_as<A: 'static + Copy, B: 'static + Copy>(a: &A) -> B {
     unsafe { ::std::ptr::read(a as *const _ as *const B) }
 }
 
-pub fn blas_compat_1d<A, S>(a: &ArrayBase<S, Ix1>) -> bool
-where
-    S: Data,
-    A: 'static,
-    S::Elem: 'static,
-{
-    if !same_type::<A, S::Elem>() {
+pub fn is_blas_compat_1d<S: Data>(a: &ArrayBase<S, Ix1>) -> bool {
+    if !is_blas_compat_dim(a.len()) {
         return false;
     }
-    if a.len() > blas_index::max_value() as usize {
-        return false;
-    }
-    let stride = a.strides()[0];
-    if stride > blas_index::max_value() as isize || stride < blas_index::min_value() as isize {
+    if !is_blas_compat_stride(a.strides()[0]) {
         return false;
     }
     true
@@ -65,65 +56,62 @@ pub enum MemoryOrder {
     F,
 }
 
-fn blas_row_major_2d<A, S>(a: &ArrayBase<S, Ix2>) -> bool
-where
-    S: Data,
-    A: 'static,
-    S::Elem: 'static,
-{
-    if !same_type::<A, S::Elem>() {
-        return false;
+impl MemoryOrder {
+    pub fn stride<S: Data>(&self, a: &ArrayBase<S, Ix2>) -> blas_index {
+        match self {
+            MemoryOrder::C => a.strides()[0] as blas_index,
+            MemoryOrder::F => a.strides()[1] as blas_index,
+        }
     }
-    is_blas_2d(a.dim(), a.strides(), MemoryOrder::C)
 }
 
-fn blas_column_major_2d<A, S>(a: &ArrayBase<S, Ix2>) -> bool
-where
-    S: Data,
-    A: 'static,
-    S::Elem: 'static,
-{
-    if !same_type::<A, S::Elem>() {
-        return false;
+impl From<MemoryOrder> for CBLAS_LAYOUT {
+    fn from(order: MemoryOrder) -> Self {
+        match order {
+            MemoryOrder::C => CBLAS_LAYOUT::CblasRowMajor,
+            MemoryOrder::F => CBLAS_LAYOUT::CblasColMajor,
+        }
     }
-    is_blas_2d(a.dim(), a.strides(), MemoryOrder::F)
 }
 
-fn is_blas_2d((m, n): (usize, usize), stride: &[isize], order: MemoryOrder) -> bool {
-    let s0 = stride[0];
-    let s1 = stride[1];
-    let (inner_stride, outer_dim) = match order {
-        MemoryOrder::C => (s1, n),
-        MemoryOrder::F => (s0, m),
-    };
-    if !(inner_stride == 1 || outer_dim == 1) {
+fn is_blas_compat_stride(s: isize) -> bool {
+    s <= blas_index::max_value() as isize && s >= blas_index::min_value() as isize
+}
+
+fn is_blas_compat_dim(n: usize) -> bool {
+    n <= blas_index::max_value() as usize
+}
+
+pub fn is_blas_compat_2d<S: Data>(a: &ArrayBase<S, Ix2>) -> bool {
+    let (m, n) = a.dim();
+    let strides = a.strides();
+
+    if strides[0] < 1 || strides[1] < 1 {
         return false;
     }
-    if s0 < 1 || s1 < 1 {
+    if !is_blas_compat_stride(strides[0]) || !is_blas_compat_stride(strides[1]) {
         return false;
     }
-    if (s0 > blas_index::max_value() as isize || s0 < blas_index::min_value() as isize)
-        || (s1 > blas_index::max_value() as isize || s1 < blas_index::min_value() as isize)
-    {
-        return false;
-    }
-    if m > blas_index::max_value() as usize || n > blas_index::max_value() as usize {
+    if !is_blas_compat_dim(m) || !is_blas_compat_dim(n) {
         return false;
     }
     true
 }
 
-pub fn blas_layout<A, S>(a: &ArrayBase<S, Ix2>) -> Option<CBLAS_LAYOUT>
+pub fn memory_layout<S>(a: &ArrayBase<S, Ix2>) -> Option<MemoryOrder>
 where
     S: Data,
-    A: 'static,
-    S::Elem: 'static,
 {
-    if blas_row_major_2d::<A, _>(a) {
-        Some(CBLAS_LAYOUT::CblasRowMajor)
-    } else if blas_column_major_2d::<A, _>(a) {
-        Some(CBLAS_LAYOUT::CblasColMajor)
-    } else {
-        None
+    let (m, n) = a.dim();
+    let s0 = a.strides()[0];
+    let s1 = a.strides()[1];
+
+    if s1 == 1 || n == 1 {
+        return Some(MemoryOrder::C);
     }
+    if s0 == 1 || m == 1 {
+        return Some(MemoryOrder::F);
+    }
+
+    None
 }
