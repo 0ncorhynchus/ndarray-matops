@@ -81,29 +81,31 @@ fn ger_impl<A, S1, S2, S3>(
 {
     macro_rules! ger {
         ($ty:ty, $ger:ident) => {{
-            if blas_row_major_2d::<$ty, _>(z)
-                && blas_compat_1d::<$ty, _>(x)
-                && blas_compat_1d::<$ty, _>(y)
-            {
-                let (m, n) = z.dim();
-                let stride = z.strides()[0] as blas_index;
-                unsafe {
-                    let (x_ptr, _, incx) = blas_1d_params(x.as_ptr(), x.len(), x.strides()[0]);
-                    let (y_ptr, _, incy) = blas_1d_params(y.as_ptr(), y.len(), y.strides()[0]);
-                    blas_sys::$ger(
-                        CBLAS_LAYOUT::CblasRowMajor,
-                        m as blas_index,
-                        n as blas_index,
-                        cast_as(&alpha),
-                        x_ptr as *const _,
-                        incx,
-                        y_ptr as *const _,
-                        incy,
-                        z.as_mut_ptr() as *mut _,
-                        stride,
-                    );
+            if let Some(layout) = blas_layout::<$ty, _>(z) {
+                if blas_compat_1d::<$ty, _>(x) && blas_compat_1d::<$ty, _>(y) {
+                    let (m, n) = z.dim();
+                    let stride = match layout {
+                        CBLAS_LAYOUT::CblasRowMajor => z.strides()[0] as blas_index,
+                        CBLAS_LAYOUT::CblasColMajor => z.strides()[1] as blas_index,
+                    };
+                    unsafe {
+                        let (x_ptr, _, incx) = blas_1d_params(x.as_ptr(), x.len(), x.strides()[0]);
+                        let (y_ptr, _, incy) = blas_1d_params(y.as_ptr(), y.len(), y.strides()[0]);
+                        blas_sys::$ger(
+                            layout,
+                            m as blas_index,
+                            n as blas_index,
+                            cast_as(&alpha),
+                            x_ptr as *const _,
+                            incx,
+                            y_ptr as *const _,
+                            incy,
+                            z.as_mut_ptr() as *mut _,
+                            stride,
+                        );
+                    }
+                    return;
                 }
-                return;
             }
         }};
     }

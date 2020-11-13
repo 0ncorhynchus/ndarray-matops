@@ -1,3 +1,4 @@
+use cblas_sys::CBLAS_LAYOUT;
 use ndarray::{ArrayBase, Data, Ix1, Ix2};
 use std::any::TypeId;
 
@@ -28,7 +29,7 @@ pub unsafe fn blas_1d_params<A>(
 
 #[inline(always)]
 /// Return `true` if `A` and `B` are the same type
-pub fn same_type<A: 'static, B: 'static>() -> bool {
+fn same_type<A: 'static, B: 'static>() -> bool {
     TypeId::of::<A>() == TypeId::of::<B>()
 }
 
@@ -64,7 +65,7 @@ pub enum MemoryOrder {
     F,
 }
 
-pub fn blas_row_major_2d<A, S>(a: &ArrayBase<S, Ix2>) -> bool
+fn blas_row_major_2d<A, S>(a: &ArrayBase<S, Ix2>) -> bool
 where
     S: Data,
     A: 'static,
@@ -76,7 +77,19 @@ where
     is_blas_2d(a.dim(), a.strides(), MemoryOrder::C)
 }
 
-pub fn is_blas_2d((m, n): (usize, usize), stride: &[isize], order: MemoryOrder) -> bool {
+fn blas_column_major_2d<A, S>(a: &ArrayBase<S, Ix2>) -> bool
+where
+    S: Data,
+    A: 'static,
+    S::Elem: 'static,
+{
+    if !same_type::<A, S::Elem>() {
+        return false;
+    }
+    is_blas_2d(a.dim(), a.strides(), MemoryOrder::F)
+}
+
+fn is_blas_2d((m, n): (usize, usize), stride: &[isize], order: MemoryOrder) -> bool {
     let s0 = stride[0];
     let s1 = stride[1];
     let (inner_stride, outer_dim) = match order {
@@ -98,4 +111,19 @@ pub fn is_blas_2d((m, n): (usize, usize), stride: &[isize], order: MemoryOrder) 
         return false;
     }
     true
+}
+
+pub fn blas_layout<A, S>(a: &ArrayBase<S, Ix2>) -> Option<CBLAS_LAYOUT>
+where
+    S: Data,
+    A: 'static,
+    S::Elem: 'static,
+{
+    if blas_row_major_2d::<A, _>(a) {
+        Some(CBLAS_LAYOUT::CblasRowMajor)
+    } else if blas_column_major_2d::<A, _>(a) {
+        Some(CBLAS_LAYOUT::CblasColMajor)
+    } else {
+        None
+    }
 }
