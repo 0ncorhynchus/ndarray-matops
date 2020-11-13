@@ -1,0 +1,16 @@
+[package]
+name = "ndarray-matops"
+version = "0.1.0"
+authors = ["Suguru Kato <salmon.bioinformatics@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+ndarray = "0.13"
+cblas-sys = { version = "0.1", default-features = false, optional = true }
+
+[features]
+default = []
+blas = ["ndarray/blas", "cblas-sys"]
+
+[workspace]
+members = ["blas_tests"]

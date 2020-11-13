@@ -1,0 +1,12 @@
+[package]
+name = "blas_tests"
+version = "0.1.0"
+authors = ["Suguru Kato <salmon.bioinformatics@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+approx = "0.3"
+ndarray = { version = "*", features = ["approx"] }
+ndarray-matops = { path = "../", features = ["blas"] }
+blas-src = { version = "0.2", default-features = false, features = ["openblas"] }
+openblas-src = { version = "0.6", default-features = false, features = ["cblas", "system"] }
