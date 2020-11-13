@@ -1,5 +1,3 @@
 mod ger;
+mod utils;
 pub use ger::Ger;
-
-#[cfg(feature = "blas")]
-mod blas_utils;

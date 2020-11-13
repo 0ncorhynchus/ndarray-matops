@@ -1,7 +1,6 @@
 use ndarray::{ArrayBase, Data, DataMut, Ix1, Ix2, LinalgScalar};
 
-#[cfg(feature = "blas")]
-use crate::blas_utils::*;
+use crate::utils::*;
 #[cfg(feature = "blas")]
 use cblas_sys as blas_sys;
 
@@ -42,10 +41,19 @@ fn ger_generic<A, S1, S2, S3>(
     S3: Data<Elem = A>,
     A: LinalgScalar,
 {
-    let (m, _) = z.dim();
-    for i in 0..m {
-        unsafe {
-            z.row_mut(i).scaled_add(alpha * *x.uget(i), y);
+    if memory_layout(z) == Some(MemoryOrder::F) {
+        let (_, n) = z.dim();
+        for j in 0..n {
+            unsafe {
+                z.column_mut(j).scaled_add(alpha * *y.uget(j), x);
+            }
+        }
+    } else {
+        let (m, _) = z.dim();
+        for i in 0..m {
+            unsafe {
+                z.row_mut(i).scaled_add(alpha * *x.uget(i), y);
+            }
         }
     }
 }
