@@ -1,12 +1,7 @@
-use ndarray::{ArrayBase, Data, DataMut, Ix1, Ix2, LinalgScalar};
-
 use crate::utils::*;
+use ndarray::{ArrayBase, Data, DataMut, Ix1, Ix2, LinalgScalar};
 #[cfg(feature = "blas")]
-use cblas_sys as blas_sys;
-
-#[cfg(feature = "blas")]
-#[allow(non_camel_case_types)]
-type blas_index = std::os::raw::c_int;
+use std::os::raw::c_int;
 
 pub trait Ger<V1, V2> {
     type Elem;
@@ -99,10 +94,10 @@ fn ger_impl<A, S1, S2, S3>(
                     unsafe {
                         let (x_ptr, _, incx) = blas_1d_params(x.as_ptr(), x.len(), x.strides()[0]);
                         let (y_ptr, _, incy) = blas_1d_params(y.as_ptr(), y.len(), y.strides()[0]);
-                        blas_sys::$ger(
+                        cblas_sys::$ger(
                             layout,
-                            m as blas_index,
-                            n as blas_index,
+                            m as c_int,
+                            n as c_int,
                             cast_as(&alpha),
                             x_ptr as *const _,
                             incx,

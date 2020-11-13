@@ -33,9 +33,7 @@ mod blas_utils {
     use cblas_sys::CBLAS_LAYOUT;
     use ndarray::{ArrayBase, Data, Ix1, Ix2};
     use std::any::TypeId;
-
-    #[allow(non_camel_case_types)]
-    type blas_index = std::os::raw::c_int;
+    use std::os::raw::c_int;
 
     /// Return a pointer to the starting element in BLAS's view.
     ///
@@ -46,16 +44,16 @@ mod blas_utils {
         ptr: *const A,
         len: usize,
         stride: isize,
-    ) -> (*const A, blas_index, blas_index) {
+    ) -> (*const A, c_int, c_int) {
         // [x x x x]
         //        ^--ptr
         //        stride = -1
         //  ^--blas_ptr = ptr + (len - 1) * stride
         if stride >= 0 || len == 0 {
-            (ptr, len as blas_index, stride as blas_index)
+            (ptr, len as c_int, stride as c_int)
         } else {
             let ptr = ptr.offset((len - 1) as isize * stride);
-            (ptr, len as blas_index, stride as blas_index)
+            (ptr, len as c_int, stride as c_int)
         }
     }
 
@@ -84,10 +82,10 @@ mod blas_utils {
     }
 
     impl MemoryOrder {
-        pub fn stride<S: Data>(&self, a: &ArrayBase<S, Ix2>) -> blas_index {
+        pub fn stride<S: Data>(&self, a: &ArrayBase<S, Ix2>) -> c_int {
             match self {
-                MemoryOrder::C => a.strides()[0] as blas_index,
-                MemoryOrder::F => a.strides()[1] as blas_index,
+                MemoryOrder::C => a.strides()[0] as c_int,
+                MemoryOrder::F => a.strides()[1] as c_int,
             }
         }
     }
@@ -102,11 +100,11 @@ mod blas_utils {
     }
 
     fn is_blas_compat_stride(s: isize) -> bool {
-        s <= blas_index::max_value() as isize && s >= blas_index::min_value() as isize
+        s <= c_int::max_value() as isize && s >= c_int::min_value() as isize
     }
 
     fn is_blas_compat_dim(n: usize) -> bool {
-        n <= blas_index::max_value() as usize
+        n <= c_int::max_value() as usize
     }
 
     pub fn is_blas_compat_2d<S: Data>(a: &ArrayBase<S, Ix2>) -> bool {
