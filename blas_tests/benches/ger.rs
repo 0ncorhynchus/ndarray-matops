@@ -1,3 +1,4 @@
+use criterion::measurement::Measurement;
 use criterion::*;
 use ndarray::*;
 use ndarray_matops::Ger;
@@ -33,40 +34,48 @@ where
     Array1::from(gen_random_numbers(side, rng))
 }
 
-fn ger(c: &mut Criterion) {
-    let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
-    let mut group = c.benchmark_group("matmul");
-    group.plot_config(plot_config);
-
-    #[cfg(feature = "bench_huge")]
-    let num_benches = SIDES.len();
-    #[cfg(not(feature = "bench_huge"))]
-    let num_benches = 8;
-
-    for side in SIDES.iter().take(num_benches) {
-        macro_rules! bench {
-            ($float:ty, $is_row_major:expr) => {{
-                let bench_name = if $is_row_major {
-                    concat!(stringify!($float), "_row_major")
-                } else {
-                    concat!(stringify!($float), "_column_major")
-                };
-                group.bench_with_input(BenchmarkId::new(bench_name, side), side, |b, &side| {
-                    let mut rng = Isaac64Rng::seed_from_u64(0);
-                    let mut m: Array2<$float> = gen_random_matrix(side, $is_row_major, &mut rng);
-                    let x = gen_random_vector(side, &mut rng);
-                    let y = gen_random_vector(side, &mut rng);
-                    b.iter(|| m.ger(2.0, &x, &y));
-                });
-            }};
-        }
-
-        bench! {f32, true}
-        bench! {f32, false}
-        bench! {f64, true}
-        bench! {f64, false}
-    }
+fn bench_ger<N, M: Measurement>(group: &mut BenchmarkGroup<M>, side: &usize, is_row_major: bool)
+where
+    StandardNormal: Distribution<N>,
+    N: LinalgScalar,
+{
+    let bench_name = if is_row_major {
+        "row_major"
+    } else {
+        "column_major"
+    };
+    group.bench_with_input(BenchmarkId::new(bench_name, side), side, |b, &side| {
+        let mut rng = Isaac64Rng::seed_from_u64(0);
+        let mut m: Array2<N> = gen_random_matrix(side, is_row_major, &mut rng);
+        let x = gen_random_vector(side, &mut rng);
+        let y = gen_random_vector(side, &mut rng);
+        let two = N::one() + N::one();
+        b.iter(|| m.ger(two, &x, &y));
+    });
 }
 
-criterion_group!(benches, ger);
+macro_rules! define_bench {
+    ($fn:ident, $float:ty) => {
+        fn $fn(c: &mut Criterion) {
+            let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
+            let mut group = c.benchmark_group(concat!("ger_", stringify!($float)));
+            group.plot_config(plot_config);
+
+            #[cfg(feature = "bench_huge")]
+            let num_benches = SIDES.len();
+            #[cfg(not(feature = "bench_huge"))]
+            let num_benches = 8;
+
+            for side in SIDES.iter().take(num_benches) {
+                bench_ger::<$float, _>(&mut group, side, true);
+                bench_ger::<$float, _>(&mut group, side, false);
+            }
+        }
+    };
+}
+
+define_bench! {ger_f32, f32}
+define_bench! {ger_f64, f64}
+
+criterion_group!(benches, ger_f32, ger_f64);
 criterion_main!(benches);
