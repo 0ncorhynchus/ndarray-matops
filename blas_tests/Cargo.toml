@@ -13,10 +13,11 @@ bench_huge = []
 approx = "0.3"
 criterion = "0.3.3"
 ndarray = { version = "*", features = ["approx"] }
-ndarray-matops = { path = "../" }
+ndarray-matops = { path = "../", features = ["sprs"]}
 rand = "0.7.3"
 rand_distr = "0.3.0"
 rand_isaac = "0.2.0"
+sprs = { version = "*", features = ["approx"] }
 
 [dependencies.blas-src]
 version = "0.2"

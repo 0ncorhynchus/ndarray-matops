@@ -7,6 +7,8 @@ edition = "2018"
 [dependencies]
 ndarray = "0.13"
 cblas-sys = { version = "0.1", default-features = false, optional = true }
+num-traits = "0.2.14"
+sprs = { version = "0.9.2", default-features = false, optional = true }
 
 [features]
 default = []

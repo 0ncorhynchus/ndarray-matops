@@ -124,3 +124,27 @@ fn ger_impl<A, S1, S2, S3>(
 
     ger_generic(z, alpha, x, y);
 }
+
+#[cfg(feature = "sprs")]
+mod impl_sprs {
+    use super::*;
+    use num_traits::Num;
+    use sprs::{CsMat, CsVec};
+    use std::ops::{AddAssign, MulAssign};
+
+    impl<A> Ger<CsVec<A>, CsVec<A>> for CsMat<A>
+    where
+        A: Copy + Num + Default + AddAssign + MulAssign + Send + Sync,
+    {
+        type Elem = A;
+
+        fn ger(&mut self, alpha: Self::Elem, x: &CsVec<A>, y: &CsVec<A>) {
+            let (m, n) = self.shape();
+            assert!(m == x.dim());
+            assert!(n == y.dim());
+            let mut prod: CsMat<A> = &x.col_view() * &y.row_view();
+            prod *= alpha;
+            *self = (self as &_) + &prod;
+        }
+    }
+}
